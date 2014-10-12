@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<head>
+	<title>Test</title>
+	<script src="js/jquery-1.11.1.js" type="text/javascript" charset="utf-8"></script>
+</head>
+<body style="margin: 0;border: 30px solid yellow; padding: 20px;">
+	<div id="container" style="height: 200px; width: 200px; padding: 50px;background: green; position: relative; border: 30px solid purple;">
+		<div id="sub" style="padding: 10px; height: 50px; width: 50px; position: absolute; left: 0; top: 0;background: red; border: 10px solid black;"></div>
+	</div>
+	<div id="text"></div>
+	<script type="text/javascript">
+	$("#text").text($("#sub").offset().top + " " + $("#sub").offset().left);
+	$("#sub").on('click', function(evt) {
+		$("#text").text(evt.pageX + " " + evt.pageY);
+	});
+	</script>
+</body>
