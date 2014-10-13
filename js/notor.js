@@ -1,3 +1,7 @@
+var EDITING = 0,
+	SAVED = 1,
+	COMPLETED = 2;
+
 function stopEvent(evt) {
 	if(evt.preventDefault) {
 		evt.preventDefault();
@@ -10,11 +14,24 @@ function stopEvent(evt) {
 		evt.cancelBubble = true;
 	}
 }
+
+function toPercentageString(num) {
+	return keepPrecision(num * 100) + '%';
+}
+
+function keepPrecision(num, precision) {
+	precision = precision || 2;
+	if(!num) {
+		return 0;
+	}
+	return Math.round(num *  Math.pow(10, 2)) / Math.pow(10, 2);
+}
+
 /**Note Class**/
 function Note(container) {
 	this.$el = this._new();
 	this.container = container;
-	this._status = 0;//0 editing 1 saved 2 completed
+	this._status = EDITING;//0 editing 1 saved 2 completed
 }
 
 Note.prototype._new = function() {
@@ -37,16 +54,15 @@ Note.prototype._new = function() {
 	return $el;
 }
 
-Note.prototype.resetUI = function(setting) {
-	if(setting.box) {
-		this.$el.css({left: setting.box.left || 0, top: setting.box.top || 0, width: setting.box.width || 0, height: setting.box.height || 0});
+Note.prototype.resetUI = function(setting, numOnly) {
+	if(setting.num || typeof setting.num !== 'undefined') {
+		this.$el.find('.number').text(setting.num);
+		if(numOnly) return this;
 	}
 	if(setting.text) {
 		this.$el.find('.note-body textarea')[0].value = setting.text;
 	}
-	if(setting.num || typeof setting.num !== 'undefined') {
-		this.$el.find('.number').text(setting.num);
-	}
+	this.$el.css({left: setting.left || 0, top: setting.top || 0, width: setting.width || 0, height: setting.height || 0});
 	return this;
 }
 
@@ -95,11 +111,13 @@ Note.prototype.bindEvent = function() {
 	});
 
 	this.$el.find('.bottom-right.corner').on('mousedown', function(evt) {
-		var pos = self.$el.position();
+		var pos = self.$el.position(),
 			startX = pos.left, 
-			startY = pos.top;
+			startY = pos.top,
+			maxWidth = self.container.$el.innerWidth() - startX,
+			maxHeight = self.container.$el.innerHeight() - startY;
 		var handle = function(evt) {
-			self.$el.css({width: Math.max(evt.pageX - self.container.elOffsetX - startX, 20), height: Math.max(evt.pageY - self.container.elOffsetY - startY, 20)});
+			self.$el.css({width: Math.min(Math.max(evt.pageX - self.container.elOffsetX - startX, 20), maxWidth), height: Math.min(Math.max(evt.pageY - self.container.elOffsetY - startY, 20), maxHeight)});
 		}
 		$(document).on('mousemove', handle).one('mouseup', function(evt) {
 			$(document).off('mousemove', handle);
@@ -107,15 +125,17 @@ Note.prototype.bindEvent = function() {
 		stopEvent(evt);
 	});
 	this.$el.find('.bottom-left.corner').on('mousedown', function(evt) {
-		var pos = self.$el.position();
+		var pos = self.$el.position(),
 			startX = pos.left, 
 			startY = pos.top,
 			startWidth = self.$el.width(),
 			startHeight = self.$el.height(),
-			maxX = startX + startWidth - 20;
+			maxX = startX + startWidth - 20,
+			maxWidth = startWidth + startX,
+			maxHeight = self.container.$el.innerHeight() - startY;
 
 		var handle = function(evt) {
-			self.$el.css({left: evt.pageX - self.container.elOffsetX > maxX ? maxX : evt.pageX - self.container.elOffsetX , width: Math.max(startWidth + (self.container.elOffsetX + startX - evt.pageX), 20), height: Math.max(evt.pageY - startY - self.container.elOffsetY, 20)});
+			self.$el.css({left: Math.min(Math.max(evt.pageX - self.container.elOffsetX, 0), maxX), width: Math.min(Math.max(startWidth + (self.container.elOffsetX + startX - evt.pageX), 20), maxWidth), height: Math.min(Math.max(evt.pageY - startY - self.container.elOffsetY, 20), maxHeight)});
 		}
 		$(document).on('mousemove', handle).one('mouseup', function(evt) {
 			$(document).off('mousemove', handle);
@@ -172,30 +192,28 @@ Note.prototype.status = function() {
 }
 
 Note.prototype.get = function() {
-	var pos = this.$el.position();
+	var pos = this.$el.position(), cw = this.container.elWidth, ch = this.container.elHeight;
 	return {
-		box: {
-			top: pos.top,
-			left: pos.left,
-			width: this.$el.width(),
-			height: this.$el.height()
-		},
+		top: keepPrecision(pos.top / ch),
+		left: keepPrecision(pos.left / cw),
+		width: keepPrecision(this.$el.width() / cw),
+		height: keepPrecision(this.$el.height() / ch),
 		text: this.$el.find('.note-body textarea').val()
 	};
 }
 
 Note.prototype.save = function(isCompleted) {
 	var noteBody = this.$el.find('.note-body');
-	this._status = 1;
+	this._status = SAVED;
 	if(isCompleted) {
-		this._status = 2;
+		this._status = COMPLETED;
 		this.$el.addClass('completed');
 	}
 	this.$el.find('.text').text(noteBody.find('textarea')[0].value).show();
 	noteBody.find('textarea, button').hide();
-	this.$el.find('.border').hover(function() {
-		noteBody.fadeIn(300);
-	}, function() {
+	this.$el.find('.border').on('mouseenter', function() {
+		noteBody.stop(true, false).fadeIn(300);
+	}).on('mouseleave', function() {
 		noteBody.fadeOut(500);
 	});
 	setTimeout(function() {
@@ -209,7 +227,7 @@ Note.prototype.save = function(isCompleted) {
 Note.prototype.edit = function() {
 	var noteBody = this.$el.find('.note-body');
 	this.$el.removeClass('completed');
-	noteBody.stop().fadeIn(0).find('textarea, button').show().end().find('.text').hide();
+	noteBody.stop(true, false).fadeIn(0).find('textarea, button').show().end().find('.text').hide();
 	noteBody.find('textarea').focus().val('').show();
 	noteBody.find('button').attr('disabled', 'disabled').show();
 	this.$el.find('.border').off('mouseenter mouseleave');
@@ -226,8 +244,9 @@ Note.prototype.destroy = function() {
 /**Notor Class**/
 function Notor(el) {
 	this.$el = (el && $(el)) || $('body');
-	this.note = null;
 	this.notes = [];
+	this.elWidth = this.$el.width();
+	this.elHeight = this.$el.height();
 	this.elOffsetX = 0;
 	this.elOffsetY = 0;
 }
@@ -238,7 +257,7 @@ Notor.prototype._removeNote = function(note) {
 			this.notes.splice(len, 1);
 			return;
 		}
-		this.notes[len].resetUI({num: len});
+		this.notes[len].resetUI({num: len}, true);
 	}
 }
 /**
@@ -252,7 +271,7 @@ Notor.prototype._resetDiffPos = function() {
 Notor.prototype._draw = function(initialNotes) {
 	var note;
 	if(!initialNotes) {
-		note = new Note(this).resetUI({num: this.notes.length + 1});
+		note = new Note(this).resetUI({num: this.notes.length + 1}, true);
 		this.notes.push(note);
 		this.$el.append(note.$el);
 		return note;
@@ -265,6 +284,10 @@ Notor.prototype._draw = function(initialNotes) {
 			for(var i = 0, len = initialNotes.length; i < len; i++) {
 				var initial = initialNotes[i];
 				initial.num = i + 1;
+				initial.top = toPercentageString(initial.top);
+				initial.left = toPercentageString(initial.left);
+				initial.width = toPercentageString(initial.width);
+				initial.height = toPercentageString(initial.height);
 				note = new Note(this).resetUI(initial).save(true).show();
 				this.$el.append(note.$el);
 				note.resetNotePos();
@@ -281,12 +304,17 @@ Notor.prototype._bindEvent = function() {
 		var _handle = function(evt) {
 			if(Math.abs(evt.pageX - startX) > 10 || Math.abs(evt.pageY - startY) > 10) {
 				moved = true;
-				var len = self.notes.length, note = self.notes[len - 1];
-				if(!(note && !note.status())) {
+				var len = self.notes.length, 
+					note = self.notes[len - 1];
+				if(!(note && note.status() === EDITING)) {
 					note = self._draw().bindEvent();
 				}
+				var top = startY - self.elOffsetY,
+					left = startX - self.elOffsetX + 8,
+					maxWidth = self.$el.innerWidth() - left,
+					maxHeight = self.$el.innerHeight() - top;
 				_handle = function(evt) {
-					note.resetUI({box: {top: startY - self.elOffsetY, left: startX - self.elOffsetX + 8, width: Math.max(evt.pageX - startX, 20), height: Math.max(evt.pageY - startY, 20)}}).show().resetNotePos().showNote();
+					note.resetUI({top: top, left: left, width: Math.min(Math.max(evt.pageX - startX, 20), maxWidth), height: Math.min(Math.max(evt.pageY - startY, 20), maxHeight)}).show().resetNotePos().showNote();
 					stopEvent(evt);
 				}
 				self.$el.css('cursor', 'auto');
@@ -301,7 +329,7 @@ Notor.prototype._bindEvent = function() {
 		$(document).on('mousemove', handle).one('mouseup', function(evt) {
 			$(document).off('mousemove', handle);
 			if(!moved && +(new Date()) - start > 200) {
-				self._draw().bindEvent().resetUI({box: {top: evt.pageY - self.elOffsetY - 50 , left: evt.pageX - self.elOffsetX - 50, width: 100, height: 100}}).show().resetNotePos().showNote(true);
+				self._draw().bindEvent().resetUI({top: evt.pageY - self.elOffsetY - 50 , left: evt.pageX - self.elOffsetX - 50, width: 100, height: 100}).show().resetNotePos().showNote(true);
 			}
 			self.$el.css('cursor', 'crosshair');
 		});	
@@ -333,13 +361,21 @@ Notor.prototype.save = function() {
 
 Notor.prototype.all = function() {
 	var data = [], len = this.notes.length, note = this.notes[len - 1];
-	if(note && !note.status()) {
+	if(note && note.status() === EDITING) {
 		len--;
 	}
 	for(var i = 0; i < len; i++) {
 		data.push(this.notes[i].get());
 	}
 	return data;
+}
+
+Notor.prototype.readonly = function() {
+	this.$el.off('mousedown');
+}
+
+Notor.prototype.edit = function() {
+	this._bindEvent();
 }
 
 Notor.prototype.init = function(initialNotes) {
