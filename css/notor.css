@@ -4,7 +4,11 @@
 	left: 0;
 	border: 1px dashed #000000;
 	display: none;
-	z-index: 9999;
+	z-index: 999;
+}
+
+.note:hover {
+	z-index: 1000;
 }
 
 .note.completed {
@@ -19,7 +23,7 @@
 	top: -2px;
 	left: -2px;
 	outline: 5px solid #f8344e;
-	background: transparent url('../images/white-1x1.png') repeat center scroll;
+	background: transparent url(../images/white-1x1.png) repeat center scroll;
 	cursor: move;
 }
 
@@ -34,7 +38,7 @@
 	position: absolute;
 	top: -16px;
 	left: -16px;
-	background: transparent url('../images/circle-note.png') no-repeat 0px 0px scroll;
+	background: transparent url(../images/circle-note.png) no-repeat 0px 0px scroll;
 }
 
 .note.completed .n-note {
@@ -55,7 +59,7 @@
 	position: absolute;
 	top: -12px;
 	right: -12px;
-	background: transparent url('../images/delete-note.png') no-repeat 0px 0px scroll;
+	background: transparent url(../images/delete-note.png) no-repeat 0px 0px scroll;
 	cursor: pointer;
 }
 
@@ -103,6 +107,7 @@
 
 .note-body textarea {
 	display: block;
+	resize: none;
 	width: 240px;
 	height: 60px;
 }
@@ -128,4 +133,6 @@
 
 .note-body .text {
 	margin: 0;
+	max-height: 200px;
+	overflow-y: auto;
 }
